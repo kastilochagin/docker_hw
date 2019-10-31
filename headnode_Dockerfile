@@ -1,0 +1,32 @@
+FROM centos:7
+ENV container docker
+RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == \
+systemd-tmpfiles-setup.service ] || rm -f $i; done); \
+rm -f /lib/systemd/system/multi-user.target.wants/*;\
+rm -f /etc/systemd/system/*.wants/*;\
+rm -f /lib/systemd/system/local-fs.target.wants/*; \
+rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+rm -f /lib/systemd/system/basic.target.wants/*;\
+rm -f /lib/systemd/system/anaconda.target.wants/*;
+VOLUME [ "/sys/fs/cgroup" ]
+RUN rm /usr/lib/tmpfiles.d/systemd-nologin.conf
+RUN yum -y install openssh-server openssh-clients wget java-1.8.0-openjdk-devel; systemctl enable sshd
+RUN ssh-keygen -A
+RUN useradd hadoop; useradd -G hadoop yarn; useradd -G hadoop hdfs
+RUN wget https://archive.apache.org/dist/hadoop/common/hadoop-3.1.2/hadoop-3.1.2.tar.gz
+RUN tar -xvzf hadoop-3.1.2.tar.gz -C /opt && rm hadoop-3.1.2.tar.gz	
+RUN mkdir /usr/local/hadoop && ln -s /opt/hadoop-3.1.2 /usr/local/hadoop/current
+RUN mkdir -p /opt/mount{1,2}/namenode-dir && chown hdfs:hadoop /opt/mount{1,2}/namenode-dir
+WORKDIR /usr/local/hadoop/current/etc/hadoop
+RUN curl -O https://gist.githubusercontent.com/rdaadr/2f42f248f02aeda18105805493bb0e9b/raw/6303e424373b3459bcf3720b253c01373666fe7c/hadoop-env.sh \
+         -O https://gist.githubusercontent.com/rdaadr/64b9abd1700e15f04147ea48bc72b3c7/raw/2d416bf137cba81b107508153621ee548e2c877d/core-site.xml \
+         -O https://gist.githubusercontent.com/rdaadr/2bedf24fd2721bad276e416b57d63e38/raw/640ee95adafa31a70869b54767104b826964af48/hdfs-site.xml \
+         -O https://gist.githubusercontent.com/Stupnikov-NA/ba87c0072cd51aa85c9ee6334cc99158/raw/bda0f760878d97213196d634be9b53a089e796ea/yarn-site.xml
+RUN sed -i 's:\(export JAVA_HOME=\).*:\1/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.232.b09-0.el7_7.x86_64:;s:\(export HADOOP_HOME=\).*:\1/usr/local/hadoop/current:;s:\(export HADOOP_HEAPSIZE_MAX=\).*:\1512:' hadoop-env.sh 
+RUN sed -i 's:%HDFS_NAMENODE_HOSTNAME%:headnode:' core-site.xml
+RUN sed -i 's:%NAMENODE_DIRS%:/opt/mount1/namenode-dir,/opt/mount2/namenode-dir:;s:%DATANODE_DIRS%:/opt/mount1/datanode-dir,/opt/mount2/datanode-dir:' hdfs-site.xml
+RUN sed -i 's:%YARN_RESOURCE_MANAGER_HOSTNAME%:headnode:;s:%NODE_MANAGER_LOCAL_DIR%:/opt/mount1/nodemanager-local-dir,/opt/mount2/nodemanager-local-dir:;s:%NODE_MANAGER_LOG_DIR%:/opt/mount1/nodemanager-log-dir,/opt/mount2/nodemanager-log-dir:' yarn-site.xml
+RUN echo 'export HADOOP_HOME=/usr/local/hadoop/current' >> /etc/profile
+EXPOSE 22 8088 9870
+CMD ["/usr/sbin/init"]
