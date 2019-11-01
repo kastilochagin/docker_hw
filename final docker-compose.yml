@@ -1,0 +1,27 @@
+version: '3'
+services:
+  headnode:
+    image: "kastilochagin/headnode-image:hw"
+    environment:
+      - container=docker
+    ports:
+      - "9870:9870"
+      - "8088:8088"
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /opt/mount1/namenode-dir:/opt/mount1/namenode-dir
+      - /opt/mount2/namenode-dir:/opt/mount2/namenode-dir
+  worker:
+    image: "kastilochagin/worker-image:hw"
+    environment:
+      - container=docker
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /opt/mount1/datanode-dir:/opt/mount1/datanode-dir
+      - /opt/mount2/datanode-dir:/opt/mount2/datanode-dir
+      - /opt/mount1/nodemanager-local-dir:/opt/mount1/nodemanager-local-dir
+      - /opt/mount2/nodemanager-local-dir:/opt/mount2/nodemanager-local-dir
+      - /opt/mount1/nodemanager-log-dir:/opt/mount1/nodemanager-log-dir
+      - /opt/mount2/nodemanager-log-dir:/opt/mount2/nodemanager-log-dir
